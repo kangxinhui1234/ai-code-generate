@@ -15,4 +15,6 @@ public class ResultUtil {
     public static <T> BaseResponse error(ErrorCode errorCode){
         return new BaseResponse(errorCode.getCode(),errorCode.getMessage(),null);
     }
+
+
 }

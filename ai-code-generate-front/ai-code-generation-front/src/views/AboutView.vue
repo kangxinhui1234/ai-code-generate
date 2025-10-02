@@ -1,15 +1,18 @@
 <template>
-  <div class="about">
-    <h1>This is an about page</h1>
+  <div class="about-view">
+    <h2>关于</h2>
+    <p>这是占位 About 页面，用于消除路由导入错误。</p>
   </div>
 </template>
 
-<style>
-@media (min-width: 1024px) {
-  .about {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-  }
+<script setup lang="ts">
+</script>
+
+<style scoped>
+.about-view {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
 }
 </style>
+

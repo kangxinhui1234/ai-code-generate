@@ -1,5 +1,9 @@
 package com.codegenerate.aicodegenerate.exception;
 
+
+import lombok.Data;
+
+@Data
 public class BussessException extends RuntimeException{
 
     private  final int code;

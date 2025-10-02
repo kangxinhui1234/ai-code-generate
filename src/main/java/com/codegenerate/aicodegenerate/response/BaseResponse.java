@@ -16,4 +16,6 @@ public class BaseResponse<T> implements Serializable {
         this.msg = msg;
         this.data = data;
     }
+
+
 }
