@@ -5,6 +5,7 @@ import cn.hutool.core.util.IdUtil;
 import com.codegenerate.aicodegenerate.ai.model.AiHtmlResult;
 import com.codegenerate.aicodegenerate.ai.model.MultiFileCodeResult;
 import com.codegenerate.aicodegenerate.ai.model.aienum.CodeGenTypeEnum;
+import com.codegenerate.aicodegenerate.constants.AppConstant;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,11 +16,28 @@ import org.springframework.stereotype.Component;
 public class CodeFileSave {
 
     private static  String ROOT_DIR = System.getProperty("user.dir") +"/tmp/";
+    // 文件保存根目录
+    protected static final String FILE_SAVE_ROOT_DIR = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
     public static String saveSingleHtml(AiHtmlResult result){
         // 1、创建文件存储路径
         // 2、文件名生成 要用唯一id
         String fileName = CodeGenTypeEnum.HTML_CODE.getType() + "_" + IdUtil.getSnowflakeNextIdStr()+".html";
+        String filePath = ROOT_DIR + fileName;
+        FileUtil.writeUtf8String(result.getHtmlCode(),filePath);
+        return filePath;
+
+    }
+
+    /**
+     * 根据文件名保存生成的文件
+     * @param result
+     * @return
+     */
+    public static String saveSingleHtml(AiHtmlResult result,Long appId){
+        // 1、创建文件存储路径
+        // 2、文件名生成 要用唯一id
+        String fileName = CodeGenTypeEnum.HTML_CODE.getType() + "_" + appId+".html";
         String filePath = ROOT_DIR + fileName;
         FileUtil.writeUtf8String(result.getHtmlCode(),filePath);
         return filePath;
@@ -37,6 +55,25 @@ public class CodeFileSave {
         // 1、创建文件存储路径
         // 2、文件夹生成 要用唯一id
         String fileDirName = CodeGenTypeEnum.HTML_MULTI_CODE.getType() + "_" + IdUtil.getSnowflakeNextIdStr()+"/";
+        String filePath = ROOT_DIR + fileDirName;
+        FileUtil.writeUtf8String(result.getHtmlCode(),filePath+"index.html");
+        FileUtil.writeUtf8String(result.getCssCode(),filePath+"style.css");
+        FileUtil.writeUtf8String(result.getJsCode(),filePath+"script.js");
+        return filePath;
+
+    }
+
+    /**
+     * 根据给定的appId作为目录名
+     * @param result
+     * @param appId
+     * @return
+     */
+
+    public static String saveMultiHtml(MultiFileCodeResult result,Long appId){
+        // 1、创建文件存储路径
+        // 2、文件夹生成 要用唯一id
+        String fileDirName = CodeGenTypeEnum.HTML_MULTI_CODE.getType() + "_" + appId+"/";
         String filePath = ROOT_DIR + fileDirName;
         FileUtil.writeUtf8String(result.getHtmlCode(),filePath+"index.html");
         FileUtil.writeUtf8String(result.getCssCode(),filePath+"style.css");

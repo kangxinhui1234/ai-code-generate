@@ -1,5 +1,7 @@
 package com.codegenerate.aicodegenerate.ai.model.aienum;
 
+import cn.hutool.core.util.ObjUtil;
+
 /**
  * 代码生成的类型
  */
@@ -10,6 +12,24 @@ public enum CodeGenTypeEnum {
 
     String type;
     String msg;
+
+    /**
+     * 根据 value 获取枚举
+     *
+     * @param value 枚举值的value
+     * @return 枚举值
+     */
+    public static CodeGenTypeEnum getEnumByValue(String value) {
+        if (ObjUtil.isEmpty(value)) {
+            return null;
+        }
+        for (CodeGenTypeEnum anEnum : CodeGenTypeEnum.values()) {
+            if (anEnum.type.equals(value)) {
+                return anEnum;
+            }
+        }
+        return null;
+    }
 
      CodeGenTypeEnum(String type, String msg) {
         this.type = type;
