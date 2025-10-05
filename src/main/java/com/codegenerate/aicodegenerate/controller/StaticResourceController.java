@@ -19,7 +19,7 @@ import java.io.File;
 public class StaticResourceController {
 
     // 应用生成根目录（用于浏览）
-    private static final String PREVIEW_ROOT_DIR = System.getProperty("user.dir") + "/tmp/code_output";
+    private static final String PREVIEW_ROOT_DIR = System.getProperty("user.dir") + "/tmp";
 
     /**
      * 提供静态资源访问，支持目录重定向

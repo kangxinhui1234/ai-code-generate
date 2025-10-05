@@ -22,7 +22,7 @@ public class GlobalExceptionHandler {
          BaseResponse response = new BaseResponse(e.getCode(),e.getMessage(),null);
          log.error(response.toString());
       //   return response;
-       return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+       return new ResponseEntity<>(response, HttpStatus.OK);
 
     }
 
@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
         BaseResponse response = new BaseResponse(ErrorCode.SYSTEM_ERROR.getCode(),e.getMessage(),null);
         log.error(response.toString());
        // return response;
-          return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+          return new ResponseEntity<>(response, HttpStatus.OK);
 
     }
 }

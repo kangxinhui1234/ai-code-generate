@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POP SHOP - 波普风电商</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <h1>POP SHOP</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#home">首页</a></li>
+                <li><a href="#products">产品</a></li>
+                <li><a href="#about">关于</a></li>
+                <li><a href="#contact">联系</a></li>
+            </ul>
+            <div class="nav-icons">
+                <button class="cart-btn">🛒 <span class="cart-count">0</span></button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 英雄区域 -->
+    <section id="home" class="hero">
+        <div class="hero-content">
+            <h2 class="hero-title">POP ART COLLECTION</h2>
+            <p class="hero-subtitle">发现独特的波普艺术商品</p>
+            <button class="cta-button">立即探索</button>
+        </div>
+        <div class="hero-pattern"></div>
+    </section>
+
+    <!-- 产品展示区 -->
+    <section id="products" class="products">
+        <div class="container">
+            <h2 class="section-title">热门产品</h2>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">全部</button>
+                <button class="filter-btn" data-filter="clothing">服装</button>
+                <button class="filter-btn" data-filter="accessories">配饰</button>
+                <button class="filter-btn" data-filter="art">艺术品</button>
+            </div>
+            <div class="products-grid">
+                <!-- 产品卡片将通过JS动态生成 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- 关于我们 -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-content">
+                <div class="about-text">
+                    <h2>关于 POP SHOP</h2>
+                    <p>我们致力于将波普艺术的活力与时尚结合，创造独特的购物体验。从安迪·沃霍尔的灵感中汲取元素，我们的产品充满色彩、趣味和个性。</p>
+                    <div class="stats">
+                        <div class="stat">
+                            <h3>500+</h3>
+                            <p>独特产品</p>
+                        </div>
+                        <div class="stat">
+                            <h3>10K+</h3>
+                            <p>满意客户</p>
+                        </div>
+                        <div class="stat">
+                            <h3>3年</h3>
+                            <p>行业经验</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-image">
+                    <div class="pop-art-frame"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 联系表单 -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <h2 class="section-title">联系我们</h2>
+            <form class="contact-form">
+                <div class="form-group">
+                    <input type="text" placeholder="姓名" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" placeholder="邮箱" required>
+                </div>
+                <div class="form-group">
+                    <textarea placeholder="留言" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="submit-btn">发送消息</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>POP SHOP</h3>
+                    <p>让艺术走进生活</p>
+                </div>
+                <div class="footer-section">
+                    <h4>快速链接</h4>
+                    <ul>
+                        <li><a href="#home">首页</a></li>
+                        <li><a href="#products">产品</a></li>
+                        <li><a href="#about">关于</a></li>
+                        <li><a href="#contact">联系</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>关注我们</h4>
+                    <div class="social-links">
+                        <a href="#">Instagram</a>
+                        <a href="#">Facebook</a>
+                        <a href="#">Twitter</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 POP SHOP. 保留所有权利。</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 购物车侧边栏 -->
+    <div class="cart-sidebar">
+        <div class="cart-header">
+            <h3>购物车</h3>
+            <button class="close-cart">×</button>
+        </div>
+        <div class="cart-items">
+            <!-- 购物车项目将通过JS动态生成 -->
+        </div>
+        <div class="cart-total">
+            <p>总计: <span class="total-amount">¥0</span></p>
+            <button class="checkout-btn">结算</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
