@@ -1,6 +1,5 @@
 package com.codegenerate.aicodegenerate.service;
 
-
 import com.codegenerate.aicodegenerate.entity.App;
 import com.codegenerate.aicodegenerate.entity.User;
 import com.codegenerate.aicodegenerate.model.dto.app.AppQueryRequest;
@@ -26,4 +25,13 @@ public interface AppService extends IService<App> {
     Flux<String> chatToGenCode(Long appId, String message, User loginUser);
 
     String deployApp(Long appId, User loginUser);
+
+    /**
+     * 删除应用（需要同时删除关联的对话历史）
+     *
+     * @param appId 应用ID
+     * @param loginUser 登录用户
+     * @return 是否删除成功
+     */
+    boolean deleteApp(Long appId, User loginUser);
 }

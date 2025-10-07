@@ -3,6 +3,7 @@ package com.codegenerate.aicodegenerate.exception;
 
 import com.codegenerate.aicodegenerate.response.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @ControllerAdvice
 @Component
 @Slf4j
+/*
+@ConditionalOnProperty(name = "openapi2ts.enabled", havingValue = "false", matchIfMissing = true)
+*/
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BussessException.class)

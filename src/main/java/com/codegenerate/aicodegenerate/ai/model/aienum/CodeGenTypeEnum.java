@@ -8,7 +8,8 @@ import cn.hutool.core.util.ObjUtil;
 public enum CodeGenTypeEnum {
 
     HTML_CODE("SINGLE_HTML_CODE","单文件生成"),
-    HTML_MULTI_CODE("HTML_MULTI_CODE","多文件生成");
+    HTML_MULTI_CODE("HTML_MULTI_CODE","多文件生成"),
+    VUE_PROJECT("Vue 工程模式", "vue_project");
 
     String type;
     String msg;
