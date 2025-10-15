@@ -4,8 +4,11 @@ import com.codegenerate.aicodegenerate.ai.model.aienum.CodeGenTypeEnum;
 import com.codegenerate.aicodegenerate.ai.tools.FileWriteTools;
 import com.codegenerate.aicodegenerate.exception.BussessException;
 import com.codegenerate.aicodegenerate.exception.ErrorCode;
+import com.codegenerate.aicodegenerate.guardrail.PromptSafetyInputGuardrail;
+import com.codegenerate.aicodegenerate.guardrail.RetryOutputGuardrail;
 import com.codegenerate.aicodegenerate.service.ChatHistoryService;
 import com.codegenerate.aicodegenerate.service.impl.ChatHistoryServiceImpl;
+import com.codegenerate.aicodegenerate.utils.SpringContextUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
@@ -107,10 +110,13 @@ public class AiCodeGeneratorFactory {
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)
                 .maxMessages(20)
+
                 .build();
         chatHistoryService.loadChatHistoryToMemory(appId,chatMemory,20);
         return AiServices.builder(AiCodeGeneratorService.class)
                 .chatModel(chatModel)
+                .inputGuardrails(new PromptSafetyInputGuardrail())
+                .outputGuardrails(new RetryOutputGuardrail())
                 .streamingChatModel(streamingChatModel)
                 .chatMemory(chatMemory)
                 .build();
@@ -145,21 +151,34 @@ public class AiCodeGeneratorFactory {
         // 根据代码生成类型选择不同的模型配置
         return switch (codeGenType) {
             // Vue 项目生成使用推理模型
-            case VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
-                    .streamingChatModel(streamingChatModel)
-                    .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTools())
-                    // 处理工具调用幻觉  工具不存在返回工具Message
-                    .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
-                            toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
-                    ))
-                    .build();
+
+            case VUE_PROJECT -> {
+                StreamingChatModel streamingResasonModel =
+                       SpringContextUtil.getBean("reasoningStreamingChatModelPrototype",StreamingChatModel.class);
+               yield  AiServices.builder(AiCodeGeneratorService.class)
+                        .streamingChatModel(streamingResasonModel)
+                        .chatMemoryProvider(memoryId -> chatMemory)
+                       .inputGuardrails(new PromptSafetyInputGuardrail())
+                      // .outputGuardrails(new RetryOutputGuardrail())
+                       .tools(new FileWriteTools())
+                       .maxSequentialToolsInvocations(20) // 工具调用上限 防止循环 单次对话中连续调用工具的次数上限
+                        // 处理工具调用幻觉  工具不存在返回工具Message
+                        .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
+                                toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
+                        ))
+                        .build();
+            }
             // HTML 和多文件生成使用默认模型
-            case HTML_CODE, HTML_MULTI_CODE -> AiServices.builder(AiCodeGeneratorService.class)
-                    .chatModel(chatModel)
-                    .streamingChatModel(streamingChatModel)
-                    .chatMemory(chatMemory)
-                    .build();
+            case HTML_CODE, HTML_MULTI_CODE -> {
+                StreamingChatModel streamingResasonModel =
+                        SpringContextUtil.getBean("streamingChatModelPrototype",StreamingChatModel.class);
+                yield AiServices.builder(AiCodeGeneratorService.class)
+                        .streamingChatModel(streamingResasonModel)
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
+                      //  .outputGuardrails(new RetryOutputGuardrail()) 增加输出护轨会导致流式失效 所以最好不要
+                        .chatMemory(chatMemory)
+                        .build();
+            }
             default -> throw new BussessException(ErrorCode.SYSTEM_ERROR.getCode(),
                     "不支持的代码生成类型: " + codeGenType.getType());
         };

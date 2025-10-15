@@ -15,15 +15,20 @@ import com.codegenerate.aicodegenerate.entity.App;
 import com.codegenerate.aicodegenerate.entity.User;
 import com.codegenerate.aicodegenerate.exception.BussessException;
 import com.codegenerate.aicodegenerate.exception.ErrorCode;
+import com.codegenerate.aicodegenerate.langgraph4j.CodeGenWorkflow;
 import com.codegenerate.aicodegenerate.mapper.AppMapper;
 import com.codegenerate.aicodegenerate.model.dto.app.AppQueryRequest;
 import com.codegenerate.aicodegenerate.model.vo.AppVO;
 import com.codegenerate.aicodegenerate.model.vo.UserVO;
+import com.codegenerate.aicodegenerate.monitor.MonitorContext;
+import com.codegenerate.aicodegenerate.monitor.MonitorContextHolder;
 import com.codegenerate.aicodegenerate.service.AppService;
 import com.codegenerate.aicodegenerate.service.ChatHistoryService;
+import com.codegenerate.aicodegenerate.service.ScreenshotService;
 import com.codegenerate.aicodegenerate.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -47,7 +52,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
-
+    @Resource
+    private ScreenshotService screenshotService;
     @Autowired
     UserService userService;
 
@@ -148,8 +154,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             log.error("保存用户消息失败: {}", e.getMessage());
             // 保存失败不影响主流程，继续执行
         }
+
+        // 6. 设置监控上下文
+        MonitorContextHolder.setContext(
+                MonitorContext.builder()
+                        .userId(loginUser.getId().toString())
+                        .appId(appId.toString())
+                        .build()
+        );
+
+
+
         // 暂时设置为 VUE 工程生成
-        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getType());
+       // app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getType());
 
         // 5. 获取应用的代码生成类型
         String codeGenTypeStr = app.getCodeGenType();
@@ -162,7 +179,12 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         StringBuilder aiResponseBuilder = new StringBuilder();
         
         Flux<String> aiResponse =  aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
-       return  streamHandlerExecutor.doExecute(aiResponse,chatHistoryService,appId,loginUser,codeGenTypeEnum);
+       return  streamHandlerExecutor.doExecute(aiResponse,chatHistoryService,appId,loginUser,codeGenTypeEnum)
+               .doFinally(
+               signalType -> {
+                   // 流结束时清理（无论成功/失败/取消）
+                   MonitorContextHolder.clearContext();
+               });
 
 //                .doOnNext(aiResponse -> {
 //                    // 7. 收集AI回复片段
@@ -252,8 +274,33 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         boolean updateResult = this.updateById(updateApp);
         // ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
         // 9. 返回可访问的 URL
-        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        String deployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        generateAppScreenshotAsync(appId,deployUrl); // 异步创建截图
+        return deployUrl;
     }
+
+
+    /**
+     * 异步生成应用截图并更新封面
+     *
+     * @param appId  应用ID
+     * @param appUrl 应用访问URL
+     */
+    public void generateAppScreenshotAsync(Long appId, String appUrl) {
+        // 使用虚拟线程异步执行
+        Thread.startVirtualThread(() -> {
+            // 调用截图服务生成截图并上传
+            String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
+            // 更新应用封面字段
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setCover(screenshotUrl);
+            boolean updated = this.updateById(updateApp);
+          //  ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+        });
+    }
+
+
 
     @Override
     public boolean deleteApp(Long appId, User loginUser) {
@@ -295,5 +342,29 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         
         return result;
     }
+
+    /**
+     * 判断走工作流还是走原始流式输出
+     * @param appId   应用 ID
+     * @param message 用户消息
+     * @param loginUser 登录用户
+     * @param agent 是否启用 Agent 模式 true-工作流
+     * @return
+     */
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser, boolean agent) {
+        // 6. 根据 agent 参数选择生成方式
+        Flux<String> codeStream;
+        if (agent) {
+            // Agent 模式：使用工作流生成代码
+            codeStream = new CodeGenWorkflow().executeWorkflowWithFlux(message, appId);
+        } else {
+            // 传统模式：调用 AI 生成代码（流式）
+            codeStream = this.chatToGenCode(appId, message, loginUser);
+        }
+        return codeStream;
+
+    }
+
 
 }

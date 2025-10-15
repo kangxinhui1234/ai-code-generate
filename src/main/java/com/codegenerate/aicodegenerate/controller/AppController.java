@@ -3,8 +3,10 @@ package com.codegenerate.aicodegenerate.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
+import com.codegenerate.aicodegenerate.ai.AiCodeGenTypeRoutingService;
 import com.codegenerate.aicodegenerate.ai.model.aienum.CodeGenTypeEnum;
 import com.codegenerate.aicodegenerate.annotation.AuthCheck;
+import com.codegenerate.aicodegenerate.annotation.RateLimit;
 import com.codegenerate.aicodegenerate.constants.AppConstant;
 import com.codegenerate.aicodegenerate.constants.UserConstant;
 import com.codegenerate.aicodegenerate.entity.App;
@@ -13,14 +15,22 @@ import com.codegenerate.aicodegenerate.exception.BussessException;
 import com.codegenerate.aicodegenerate.exception.ErrorCode;
 import com.codegenerate.aicodegenerate.model.dto.app.*;
 import com.codegenerate.aicodegenerate.model.dto.user.DeleteRequest;
+import com.codegenerate.aicodegenerate.model.enums.RateLimitType;
 import com.codegenerate.aicodegenerate.model.vo.AppVO;
 import com.codegenerate.aicodegenerate.response.BaseResponse;
 import com.codegenerate.aicodegenerate.response.ResultUtil;
 import com.codegenerate.aicodegenerate.service.AppService;
+import com.codegenerate.aicodegenerate.service.ProjectDownloadService;
 import com.codegenerate.aicodegenerate.service.UserService;
+import com.codegenerate.aicodegenerate.utils.SpringContextUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.service.AiServices;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -29,6 +39,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +60,9 @@ public class AppController {
     @Autowired
     private UserService userService;
 
+
+    @Resource
+    AiCodeGenTypeRoutingService AiCodeGenTypeRoutingService;
 
     /**
      * 创建应用
@@ -71,8 +85,20 @@ public class AppController {
         app.setUserId(loginUser.getId());
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        /**
+         * 测试多例情况是否会出现监听器注入
+         */
+        ChatModel chatModel =
+                (ChatModel)SpringContextUtil.getBean("chatModelPrototype");
+        AiCodeGenTypeRoutingService codeGenTypeRoutingService =  AiServices.builder(AiCodeGenTypeRoutingService.class)
+                .chatModel(chatModel)
+                .build();
+
+
+        // 基于大模型计算应该用那种类型的网站
+        CodeGenTypeEnum codeGenTypeEnum = codeGenTypeRoutingService.routeCodeGenType(appAddRequest.getInitPrompt());
         // 暂时设置为多文件生成
-        app.setCodeGenType(CodeGenTypeEnum.HTML_MULTI_CODE.getType());
+        app.setCodeGenType(codeGenTypeEnum.getType());
         // 插入数据库
         boolean result = appService.save(app);
         //ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
@@ -333,6 +359,7 @@ public class AppController {
      * @return
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 3, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam String appId,
                                                        @RequestParam String message,
                                                        HttpServletRequest request) {
@@ -363,6 +390,47 @@ public class AppController {
                 );
     }
 
+
+    /**
+     * 生成代码  包装程ServerSentEvent
+     * @param appId
+     * @param message
+     * @param request
+     * @return
+     */
+    @GetMapping(value = "/chat/workflow/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> chatToGenCodeWorkFlow(@RequestParam String appId,
+                                                       @RequestParam String message,
+                                                       HttpServletRequest request) {
+        // 参数校验
+        //ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        // ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 调用服务生成代码（流式）
+        Flux<String> contentFlux = appService.chatToGenCode(Long.valueOf(appId), message, loginUser,true);
+        // 转换为 ServerSentEvent 格式
+        return contentFlux
+                .map(chunk -> {
+                    // 将内容包装成JSON对象
+                    Map<String, String> wrapper = Map.of("d", chunk);
+                    String jsonData = JSONUtil.toJsonStr(wrapper);
+                    return ServerSentEvent.<String>builder()
+                            .data(jsonData)
+                            .build();
+                }).concatWith(
+                        Mono.just(
+                                ServerSentEvent.<String>builder()
+                                        .event("done")
+                                        .data("")
+                                        .build()
+                        )
+                );
+    }
+
+
+
     /**
      * 应用部署
      *
@@ -381,6 +449,47 @@ public class AppController {
         String deployUrl = appService.deployApp(appId, loginUser);
         return ResultUtil.sucess(deployUrl);
     }
+
+
+
+    @Resource
+    private ProjectDownloadService projectDownloadService;
+
+    /**
+     * 下载应用代码
+     *
+     * @param appId    应用ID
+     * @param request  请求
+     * @param response 响应
+     */
+    @GetMapping("/download/{appId}")
+    public void downloadAppCode(@PathVariable Long appId,
+                                HttpServletRequest request,
+                                HttpServletResponse response) {
+        // 1. 基础校验
+       // ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        // 2. 查询应用信息
+        App app = appService.getById(appId);
+       // ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 3. 权限校验：只有应用创建者可以下载代码
+        User loginUser = userService.getLoginUser(request);
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BussessException(ErrorCode.NO_AUTH_ERROR.getCode(), "无权限下载该应用代码");
+        }
+        // 4. 构建应用代码目录路径（生成目录，非部署目录）
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        // 5. 检查代码目录是否存在
+        File sourceDir = new File(sourceDirPath);
+       // ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(),
+          //      ErrorCode.NOT_FOUND_ERROR, "应用代码不存在，请先生成代码");
+        // 6. 生成下载文件名（不建议添加中文内容）
+        String downloadFileName = String.valueOf(appId);
+        // 7. 调用通用下载服务
+        projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
+    }
+
 
 
 }

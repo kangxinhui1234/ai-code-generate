@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  * @author kxh
  */
 @Service
-@Transactional
+//@Transactional
 @Slf4j
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory> implements ChatHistoryService {
 

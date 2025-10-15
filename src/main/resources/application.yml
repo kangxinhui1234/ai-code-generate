@@ -26,6 +26,7 @@ spring:
       host: localhost
       port: 6389
       password:
+      database: 2
       ttl: 3600
 server:
   servlet:
@@ -53,6 +54,14 @@ mybatis-flex:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
 
 
 
